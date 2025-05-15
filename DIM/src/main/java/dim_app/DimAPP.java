@@ -8,11 +8,15 @@ import com.ververica.cdc.connectors.mysql.source.MySqlSource;
 import io.debezium.data.Json;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.MapFunction;
+import org.apache.flink.api.common.state.MapStateDescriptor;
+import org.apache.flink.api.common.state.ReadOnlyBroadcastState;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.streaming.api.datastream.BroadcastStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.ProcessFunction;
+import org.apache.flink.streaming.api.functions.co.BroadcastProcessFunction;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.util.Collector;
 import org.apache.hadoop.hbase.client.Admin;
@@ -100,8 +104,32 @@ public class DimAPP extends BaseApp {
         });
 
 //        TODO  4、将数据流进行广播
-//        TODO  5、读取业务数据
-//        TODO  6、联合广播流，过滤出维度表数据
+        MapStateDescriptor mapStateDescriptor = new MapStateDescriptor("dimConf", String.class, TableProcessDim.class);
+        BroadcastStream<TableProcessDim> dimbroadcastDS = dimConf.broadcast(mapStateDescriptor);
+//        TODO  5、读取业务数据，并转换为jsonobj类型
+        DataStreamSource<String> dimDS = env.fromSource(FlinkSourceUtil.getMySqlSource("b1uemusic"), WatermarkStrategy.noWatermarks(), "dimDS");
+        SingleOutputStreamOperator<JSONObject> dimjsonDS = dimDS.map(new MapFunction<String, JSONObject>() {
+            @Override
+            public JSONObject map(String value) throws Exception {
+                return JSONObject.parseObject(value);
+            }
+        });
+        dimjsonDS.print();
+//        TODO  6、联合维度配置广播流，过滤出维度表数据
+//        dimjsonDS.connect(dimbroadcastDS).process(new BroadcastProcessFunction<JSONObject, TableProcessDim, JSONObject>() {
+//            @Override
+//            public void processElement(JSONObject jsonObj, BroadcastProcessFunction<JSONObject, TableProcessDim, JSONObject>.ReadOnlyContext ctx, Collector<JSONObject> out) throws Exception {
+//                ReadOnlyBroadcastState broadcastState = ctx.getBroadcastState(mapStateDescriptor);
+//                JSONObject date = jsonObj.getJSONObject("after");
+//
+//
+//            }
+//
+//            @Override
+//            public void processBroadcastElement(TableProcessDim value, BroadcastProcessFunction<JSONObject, TableProcessDim, JSONObject>.Context ctx, Collector<JSONObject> out) throws Exception {
+//                ctx.getBroadcastState(mapStateDescriptor).put(value.getSinkTable(),value);
+//            }
+//        })
 //        TODO  7、写入HBase维度表
 //        TODO  8、执行程序
         try {
