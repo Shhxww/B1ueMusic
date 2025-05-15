@@ -84,6 +84,7 @@ public class FlinkSourceUtil {
                 .username("root")
                 .password("000000")
                 .databaseList(database)
+                .tableList(database + ".*")
                 .jdbcProperties(jdbcProperties)
                 .startupOptions(StartupOptions.initial())  // 默认值: initial  第一次启动读取所有数据(快照), 然后通过 binlog 实时监控变化数据
                 .deserializer(new JsonDebeziumDeserializationSchema())
