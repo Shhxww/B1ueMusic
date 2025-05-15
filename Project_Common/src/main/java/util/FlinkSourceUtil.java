@@ -3,6 +3,7 @@ package util;
 import com.google.gson.JsonObject;
 import com.ververica.cdc.connectors.mysql.source.MySqlSource;
 import com.ververica.cdc.connectors.mysql.source.MySqlSourceBuilder;
+import com.ververica.cdc.connectors.mysql.table.StartupOptions;
 import com.ververica.cdc.debezium.JsonDebeziumDeserializationSchema;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.serialization.SimpleStringSchema;
@@ -12,6 +13,8 @@ import org.apache.flink.connector.kafka.source.enumerator.initializer.OffsetsIni
 
 import java.io.IOException;
 import java.util.Properties;
+
+import static com.ververica.cdc.debezium.table.DebeziumOptions.getDebeziumProperties;
 
 /**
  * @基本功能:
@@ -55,16 +58,22 @@ public class FlinkSourceUtil {
     }
 //    FlinkCDC连接MySQL
     public static MySqlSource<String> getMySqlSource(String database, String tablename) {
-        MySqlSource<String> mySqlSource =
-                new MySqlSourceBuilder<String>().
-                        hostname("node1")
-                        .port(3306)
-                        .username("root")
-                        .password("000000")
-                        .databaseList(database)
-                        .tableList(database + "." + tablename)
-                        .deserializer(new JsonDebeziumDeserializationSchema())
-                        .build();
+//         配置mysqlcdc
+        Properties jdbcProperties = new Properties();
+        jdbcProperties.setProperty("useSSL", "false");
+        jdbcProperties.setProperty("allowPublicKeyRetrieval", "true");
+        MySqlSource<String> mySqlSource = MySqlSource
+                .<String>builder()
+                .hostname("node1")
+                .port(3306)
+                .username("root")
+                .password("000000")
+                .databaseList(database)
+                .tableList(database + "." + tablename)
+                .jdbcProperties(jdbcProperties)
+                .startupOptions(StartupOptions.initial())  // 默认值: initial  第一次启动读取所有数据(快照), 然后通过 binlog 实时监控变化数据
+                .deserializer(new JsonDebeziumDeserializationSchema())
+                .build();
         return mySqlSource;
     }
 

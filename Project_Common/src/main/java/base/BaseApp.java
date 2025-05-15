@@ -17,8 +17,9 @@ import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 
 public abstract class BaseApp {
 
-    public void start(int port, int parallelism, String ck_path){
-        //        TODO 1、 设置初始环境
+    public void start(int port, int parallelism, String ck_path) throws Exception {
+        System.setProperty("org.slf4j.simpleLogger.log.org.apache.flink", "warn");
+//        TODO 1、 设置初始环境
 //        1.1 获取流处理环境，并指定本地测试时启动 WebUI 所绑定的端口
         Configuration conf = new Configuration();
         conf.setInteger("rest.port", port);
@@ -44,7 +45,8 @@ public abstract class BaseApp {
         env.setRestartStrategy(RestartStrategies.failureRateRestart(1, Time.days(3),Time.seconds(3)));
 //        2.6   进行处理
         handle(env,tEnv);
+
     }
 
-    public abstract void handle(StreamExecutionEnvironment env, StreamTableEnvironment tEnv);
+    public abstract void handle(StreamExecutionEnvironment env, StreamTableEnvironment tEnv) throws Exception;
 }
