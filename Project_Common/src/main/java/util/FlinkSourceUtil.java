@@ -56,15 +56,14 @@ public class FlinkSourceUtil {
 
         return kafkaSource;
     }
-//    FlinkCDC连接MySQL()
-    public static MySqlSource<String> getMySqlSource(String database, String... tablename) {
+//    FlinkCDC连接MySQL(一表)
+    public static MySqlSource<String> getMySqlSource(String database, String tablename) {
 //         配置mysqlcdc
         Properties jdbcProperties = new Properties();
         jdbcProperties.setProperty("useSSL", "false");
         jdbcProperties.setProperty("allowPublicKeyRetrieval", "true");
         MySqlSource<String> mySqlSource;
-        if (tablename!=null){
-            mySqlSource = MySqlSource
+        mySqlSource = MySqlSource
                 .<String>builder()
                 .hostname("node1")
                 .port(3306)
@@ -76,8 +75,18 @@ public class FlinkSourceUtil {
                 .startupOptions(StartupOptions.initial())  // 默认值: initial  第一次启动读取所有数据(快照), 然后通过 binlog 实时监控变化数据
                 .deserializer(new JsonDebeziumDeserializationSchema())
                 .build();
-        } else {
-            mySqlSource = MySqlSource
+
+        return mySqlSource;
+    }
+//    FlinkCDC连接MySQL(整库)
+    public static MySqlSource<String> getMySqlSource(String database) {
+//         配置mysqlcdc
+        Properties jdbcProperties = new Properties();
+        jdbcProperties.setProperty("useSSL", "false");
+        jdbcProperties.setProperty("allowPublicKeyRetrieval", "true");
+        MySqlSource<String> mySqlSource;
+
+        mySqlSource = MySqlSource
                 .<String>builder()
                 .hostname("node1")
                 .port(3306)
@@ -89,7 +98,7 @@ public class FlinkSourceUtil {
                 .startupOptions(StartupOptions.initial())  // 默认值: initial  第一次启动读取所有数据(快照), 然后通过 binlog 实时监控变化数据
                 .deserializer(new JsonDebeziumDeserializationSchema())
                 .build();
-        }
+
 
         return mySqlSource;
     }
