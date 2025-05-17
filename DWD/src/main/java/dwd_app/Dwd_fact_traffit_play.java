@@ -7,7 +7,7 @@ import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import util.FlinkSQLUtil;
 
 /**
- * @基本功能:   歌曲播放事实表
+ * @基本功能:   流量域——歌曲播放事实表
  * @program:B1ueMusic
  * @author: B1ue
  * @createTime:2025-05-16 23:30:07

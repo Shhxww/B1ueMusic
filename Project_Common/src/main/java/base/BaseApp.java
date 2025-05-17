@@ -3,6 +3,7 @@ package base;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
@@ -20,9 +21,10 @@ public abstract class BaseApp {
     public void start(int port, int parallelism, String ck_path) throws Exception {
         System.setProperty("org.slf4j.simpleLogger.log.org.apache.flink", "warn");
 //        TODO 1、 设置初始环境
-//        1.1 获取流处理环境，并指定本地测试时启动 WebUI 所绑定的端口
+//        1.1 获取流处理环境，并指定本地测试时启动 WebUI 所绑定的端口、启用火焰图
         Configuration conf = new Configuration();
-        conf.setInteger("rest.port", port);
+        conf.setInteger(RestOptions.PORT, port);
+        conf.setBoolean(RestOptions.ENABLE_FLAMEGRAPH, true);
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(conf);
 //        1.2 设置程序全局并行度
         env.setParallelism(parallelism);
@@ -30,6 +32,7 @@ public abstract class BaseApp {
         System.setProperty("HADOOP_USER_NAME", "root");
 //        1.4   创建动态表环境
         StreamTableEnvironment tEnv = StreamTableEnvironment.create(env);
+
 
 //        TODO 2、 配置检查点、重启策略
 //        2.1   启用检查点
