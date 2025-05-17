@@ -17,19 +17,19 @@ import util.FlinkSQLUtil;
 
 /**
  * 数据样本
- * {
- * "common":
- *  {
- *      "login_id": 120524,
- *      "user_id": 10021,
- *      "province_id": 1,
- *      "login_ts": 1748988324000
- *      },
- * "channel": "APP",
- * "mac_id": "532223464136820614",
- * "type": "login",
- *  "ts": 1748988324000
- * }
+      {
+          "common":
+           {
+               "login_id": 120524,
+               "user_id": 10021,
+               "province_id": 1,
+              "login_ts": 1748988324000
+              },
+          "channel": "APP",
+          "mac_id": "532223464136820614",
+          "type": "login",
+           "ts": 1748988324000
+      }
  */
 
 public class Dwd_fact_user_login extends BaseApp {
@@ -53,7 +53,7 @@ public class Dwd_fact_user_login extends BaseApp {
                 "select " +
                 "cast(common['login_id'] as bigint ) login_id," +
                 "cast(common['user_id'] as bigint ) user_id," +
-                "cast(common['province_id'] as bigint ) province_id," +
+                "cast(common['province_id'] as int ) province_id," +
                 "channel," +
                 "ts " +
                 "from Ods_log " +
