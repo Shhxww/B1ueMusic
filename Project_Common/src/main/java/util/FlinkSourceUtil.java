@@ -1,15 +1,20 @@
 package util;
 
+import com.alibaba.fastjson.JSONObject;
 import com.google.gson.JsonObject;
 import com.ververica.cdc.connectors.mysql.source.MySqlSource;
 import com.ververica.cdc.connectors.mysql.source.MySqlSourceBuilder;
 import com.ververica.cdc.connectors.mysql.table.StartupOptions;
 import com.ververica.cdc.debezium.JsonDebeziumDeserializationSchema;
+import org.apache.flink.api.common.eventtime.WatermarkStrategy;
+import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.serialization.SimpleStringSchema;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.connector.kafka.source.KafkaSource;
 import org.apache.flink.connector.kafka.source.enumerator.initializer.OffsetsInitializer;
+import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
 import java.io.IOException;
 import java.util.Properties;
@@ -102,5 +107,27 @@ public class FlinkSourceUtil {
 
         return mySqlSource;
     }
+
+//    获取日志数据，并进行处理
+    public static SingleOutputStreamOperator<JSONObject> getOdsLog(StreamExecutionEnvironment env, String groupId){
+        return env
+                .fromSource(
+                        FlinkSourceUtil.getkafkaSource("BM_log", groupId),
+                        WatermarkStrategy.noWatermarks(),
+                        groupId)
+                .map(new MapFunction<String, JSONObject>() {
+                    @Override
+                    public JSONObject map(String value) throws Exception {
+                        try {
+                            JSONObject jsonObject = JSONObject.parseObject(value);
+                            return jsonObject;
+                        } catch (Exception e) {
+                            return null;
+                        }
+                    }
+                });
+
+    }
+
 
 }

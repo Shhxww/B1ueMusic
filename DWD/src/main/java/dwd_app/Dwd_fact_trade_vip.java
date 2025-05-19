@@ -17,48 +17,60 @@ public class Dwd_fact_trade_vip extends BaseApp {
 
     public static void main(String[] args) throws Exception {
 //        启动程序
-
+        new Dwd_fact_trade_vip().start(
+                10020,
+                4,
+                "Dwd_fact_trade_vip"
+        );
     }
 
     @Override
     public void handle(StreamExecutionEnvironment env, StreamTableEnvironment tEnv) throws Exception {
-        //        TODO  1、创建日志数据映射表
-        FlinkSQLUtil.setOds_log(tEnv);
+       //        TODO  1、读取mysql上的开通会员业务数据
+        tEnv.executeSql("create table order_vip( " +
+                "order_id bigint," +
+                "user_id bigint," +
+                "vip_type string," +
+                "order_num int," +
+                "channel_id bigint," +
+                "status_type_id string," +
+                "pay_type string," +
+                "amount bigint," +
+                "create_ts bigint," +
+                "primary key(order_id) not enforced" +
+                ")"+FlinkSQLUtil.getMySQLSource("b1uemusic","ods_vip_order")
+        );
 
-//        TODO  2、过滤出歌曲播放日志数据，并进行清洗
-        Table result = tEnv.sqlQuery("" +
+//        TODO  2、筛选出成功的开通会员订单业务数据
+        Table result = tEnv.sqlQuery(
                 "select " +
-                "cast(common['play_id'] as bigint ) play_id," +
-                "cast(common['song_id'] as bigint ) song_id," +
-                "cast(common['user_id'] as bigint ) user_id," +
-                "cast(common['complete'] as int ) complete," +
-                "cast(common['start_ts'] as bigint ) start_ts," +
-                "cast(common['end_ts'] as bigint ) end_ts," +
-                "channel," +
-                "ts " +
-                "from Ods_log " +
-                "where type = 'play' " +
-                "   and cast(common['play_id'] as bigint )>0 " +
-                "   and cast(common['user_id'] as bigint )>0" +
-                "   and cast(common['song_id'] as bigint )>0" +
-                "   and cast(common['complete'] as int ) complete in (0,1) "
-        );
+                "order_id," +
+                "user_id," +
+                "vip_type," +
+                "order_num," +
+                "channel_id," +
+                "pay_type," +
+                "amount," +
+                "create_ts"+
+                " from order_vip " +
+                " where status_type_id = '101' ");
 
-//        TODO  3、创建歌曲播放事实表的映射表
-         tEnv.executeSql("create table dwd_fact_traffic_play(" +
-                " play_id bigint," +
-                 "song_id bigint" +
-                " user_id bigint," +
-                " complete int," +
-                 "start_ts bigint," +
-                 "end_ts bigint," +
-                " channel string," +
-                " ts bigint," +
-                "primary key(play_id) not enforced" +
-                ")"+FlinkSQLUtil.getUpsetKafkaDDLSink("BM_DWD_TRAFFIC")
-        );
+//        TODO  3、创建开通会员事实表映射表
+         tEnv.executeSql(
+                 "create table dwd_fact_trade_order_vip(" +
+                "order_id bigint," +
+                "user_id bigint," +
+                "vip_type string," +
+                "order_num int," +
+                "channel_id bigint," +
+                "pay_type string," +
+                "amount bigint," +
+                "create_ts bigint," +
+                "primary key(order_id) not enforced" +
+                ")"+FlinkSQLUtil.getUpsetKafkaDDLSink("BM_DWD_Trade_Order_Vip")
+         );
 
-//        TODO  4、将清洗后的数据插入到映射表中去
-        result.executeInsert("dwd_fact_traffic_play");
+//        TODO  4、将数据输出到kafka上
+        result.executeInsert("dwd_fact_trade_order_vip");
     }
 }

@@ -1,11 +1,18 @@
 package dwd_app;
 
 import base.BaseApp;
+import com.alibaba.fastjson.JSONObject;
 import com.sun.xml.internal.bind.v2.TODO;
+import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.functions.ProcessFunction;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
+import org.apache.flink.util.Collector;
+import org.apache.flink.util.OutputTag;
 import util.FlinkSQLUtil;
+import util.FlinkSinkUtil;
+import util.FlinkSourceUtil;
 
 /**
  * @基本功能:   用户域——用户注册事实表
@@ -42,36 +49,59 @@ public class Dwd_fact_user_register extends BaseApp {
 
     @Override
     public void handle(StreamExecutionEnvironment env, StreamTableEnvironment tEnv) throws Exception {
-//        TODO  1、创建日志数据映射表
-        FlinkSQLUtil.setOds_log(tEnv);
+//        TODO  1、读取日志数据并转化为 jsonObject
+        SingleOutputStreamOperator<JSONObject> jsonObj = FlinkSourceUtil.getOdsLog(env,"Dwd_fact_user_register");
 
+//        TODO  2、过滤出用户注册日志数据
+        SingleOutputStreamOperator<JSONObject> process = jsonObj.process(new ProcessFunction<JSONObject, JSONObject>() {
+            @Override
+            public void processElement(JSONObject value, ProcessFunction<JSONObject, JSONObject>.Context ctx, Collector<JSONObject> out) throws Exception {
+                if (value != null && value.getString("type").equals("register"))
+                    out.collect(value);
+            }});
 
-//        TODO  2、过滤出用户注册日志数据，并进行清洗
-    Table result = tEnv.sqlQuery(
-            "select " +
-            "   cast(common['register_id'] as bigint) as register_id," +
-            "   cast(common['user_id'] as bigint) as user_id," +
-            "   cast(common['province_id'] as int) as province_id," +
-            "   channel," +
-            "   ts " +
-            "from Ods_log " +
-            "where type='register' " +
-            "   and cast(common['user_id'] as bigint) > 0 " +
-            "   and cast(common['province_id'] as int) between 1 and 34"
-        );
+//        TODO  3、对数据进行清洗，将脏数据输出到侧道
+        OutputTag<String> Dirty = new OutputTag<String>("BM_Dirty") {};
 
-//        TODO  3、创建用户注册事实表的映射表
-        tEnv.executeSql("create table dwd_fact_user_register(" +
-                " register_id bigint," +
-                " user_id bigint," +
-                " province_id int," +
-                " channel string," +
-                " ts bigint," +
-                "primary key(register_id) not enforced" +
-                ")"+FlinkSQLUtil.getUpsetKafkaDDLSink("BM_DWD_USER")
-        );
+        SingleOutputStreamOperator<String> result = process.process(new ProcessFunction<JSONObject, String>() {
+            @Override
+            public void processElement(JSONObject value, ProcessFunction<JSONObject, String>.Context ctx, Collector<String> out) throws Exception {
+                try {
 
-//        TODO  4、将清洗后的数据插入到映射表中去
-        result.executeInsert("dwd_fact_user_register");
+                    String channel = value.getString("channel");
+                    JSONObject data = value.getJSONObject("common");
+
+                    Long provinceId = data.getLong("province_id");
+                    Long registerId = data.getLong("register_id");
+                    Long userId = data.getLong("user_id");
+
+                    if (
+                            userId > 0L &&  registerId > 0L && (provinceId > 0 && provinceId < 35)
+                    ) {
+                        data.put("channel", channel);
+                        out.collect(data.toJSONString());
+                    } else {
+//                        类型数值不符合标准
+                        value.put("dirty_type", "1");
+                        ctx.output(Dirty, value.toJSONString());
+                    }
+
+                } catch (Exception e) {
+//                    类型转化错误
+                    value.put("dirty_type", "2");
+                    ctx.output(Dirty, value.toJSONString());
+                }
+
+            }
+        });
+
+//        TODO  4、将数据输出到kafka上
+        result.sinkTo(FlinkSinkUtil.getKafkaSink("BM_DWD_User_Register"));
+
+//        TODO  5、将脏数据输出到kafka上备用
+        result.getSideOutput(Dirty).sinkTo(FlinkSinkUtil.getKafkaSink("BM_Dirty"));
+
+//        TODO  6、启动程序
+        env.execute("用户注册事实表");
     }
 }

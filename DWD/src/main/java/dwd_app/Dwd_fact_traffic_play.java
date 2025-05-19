@@ -23,19 +23,21 @@ import util.FlinkSourceUtil;
  **/
 
 /**数据样本
-    {"
-        common": {
-            "play_id": 263336,
-            "song_id": 10069,
-            "user_id": 10031,
-            "complete": 1,
-            "start_ts": 1748853375000,
-            "end_ts": 1748853440660
-            },
-        "channel": "Web",
-        "mac_id": "924617869754446474",
-        "type": "play",
-        "ts": 1748853375000}
+    {
+    "common":
+        {
+         "play_id": 637510,
+         "song_id": 10058,
+         "user_id": 10042,
+         "channel": "APP",
+         "lead_song_id": null,
+         "start_ts": 1748511173000
+         },
+     "channel": "APP",
+     "mac_id": "281507349970091579",
+     "type": "play",
+     "ts": 1748511173000
+     }
  **/
 
 public class Dwd_fact_traffic_play extends BaseApp {
@@ -52,20 +54,8 @@ public class Dwd_fact_traffic_play extends BaseApp {
 
     @Override
     public void handle(StreamExecutionEnvironment env, StreamTableEnvironment tEnv) throws Exception {
-    //        TODO  1、读取日志数据并转化为jsonobj
-        SingleOutputStreamOperator<JSONObject> jsonObj = env
-                .fromSource(FlinkSourceUtil.getkafkaSource("BM_log", "Dwd_fact_Interaction_singer_follow"), WatermarkStrategy.noWatermarks(), "srarchDS")
-                .map(new MapFunction<String, JSONObject>() {
-                    @Override
-                    public JSONObject map(String value) throws Exception {
-                        try {
-                            JSONObject jsonObject = JSONObject.parseObject(value);
-                            return jsonObject;
-                        } catch (Exception e) {
-                            return null;
-                        }
-                    }
-                });
+//        TODO  1、读取日志数据并转化为jsonObject
+        SingleOutputStreamOperator<JSONObject> jsonObj = FlinkSourceUtil.getOdsLog(env, "Dwd_fact_traffic_play");
 
 //        TODO  2、过滤出歌曲播放日志数据
         SingleOutputStreamOperator<JSONObject> process = jsonObj.process(new ProcessFunction<JSONObject, JSONObject>() {

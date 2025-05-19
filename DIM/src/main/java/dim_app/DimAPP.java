@@ -183,8 +183,7 @@ public class DimAPP extends BaseApp {
                 ctx.getBroadcastState(mapStateDescriptor).put(value.getSourceTable(),value);
             }
         });
-//        TODO  7、
-//        TODO  8、执行程序
+//        TODO  7、执行程序
         try {
             env.execute();
         } catch (Exception e) {

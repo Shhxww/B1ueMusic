@@ -49,20 +49,8 @@ public class Dwd_fact_Interaction_singer_follow extends BaseApp {
 
     @Override
     public void handle(StreamExecutionEnvironment env, StreamTableEnvironment tEnv) throws Exception {
-        //        TODO  1、读取日志数据并转化为jsonobj
-        SingleOutputStreamOperator<JSONObject> jsonObj = env
-                .fromSource(FlinkSourceUtil.getkafkaSource("BM_log", "Dwd_fact_Interaction_singer_follow"), WatermarkStrategy.noWatermarks(), "srarchDS")
-                .map(new MapFunction<String, JSONObject>() {
-                    @Override
-                    public JSONObject map(String value) throws Exception {
-                        try {
-                            JSONObject jsonObject = JSONObject.parseObject(value);
-                            return jsonObject;
-                        } catch (Exception e) {
-                            return null;
-                        }
-                    }
-                });
+//        TODO  1、读取日志数据并转化为jsonobj
+        SingleOutputStreamOperator<JSONObject> jsonObj = FlinkSourceUtil.getOdsLog(env,"Dwd_fact_Interaction_singer_follow");
 
 //        TODO  2、过滤出歌曲评论日志数据
         SingleOutputStreamOperator<JSONObject> process = jsonObj.process(new ProcessFunction<JSONObject, JSONObject>() {

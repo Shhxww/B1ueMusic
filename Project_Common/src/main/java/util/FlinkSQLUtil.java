@@ -12,6 +12,19 @@ import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 public class FlinkSQLUtil {
     private static String kafkaBroke = "node1:9092,node2:9092,node3:9092";
 
+//    获取mysql-cdc连接器
+    public static String getMySQLSource(String database,String table){
+        return "WITH (\n" +
+                "     'connector' = 'mysql-cdc',\n" +
+                "     'hostname' = 'node1',\n" +
+                "     'port' = '3306',\n" +
+                "     'username' = 'root',\n" +
+                "     'password' = '000000',\n" +
+                "     'database-name' = '"+database+"',\n" +
+                "     'table-name' = '"+table+"')";
+    }
+
+
     /**
      * 获取kafka连接器
      * @param topic 主题
@@ -30,22 +43,6 @@ public class FlinkSQLUtil {
             ")";
     }
 
-    /**
-     * 将kafka上ODS的日志数据映射成Ods_log表
-     * @param tEnv  流动表环境
-     */
-    public static void setOds_log(StreamTableEnvironment tEnv){
-        tEnv.executeSql("create table Ods_log(" +
-                " common map<string, string>," +
-                " channel string," +
-                " mac_id string," +
-                " type string," +
-                " ts bigint" +
-                ")"+getKafkaDDLSource("BM_log","ods_log")
-        );
-    }
-
-
   /**
      * 获取upsert-kafka连接器
      * @param topic 主题
@@ -62,4 +59,21 @@ public class FlinkSQLUtil {
                             "  'value.format' = 'json' " +
                             ")";
     }
+
+    /**
+     * 将kafka上ODS的日志数据映射成Ods_log表
+     * @param tEnv  流动表环境
+     */
+    public static void setOds_log(StreamTableEnvironment tEnv){
+        tEnv.executeSql("create table Ods_log(" +
+                " common map<string, string>," +
+                " channel string," +
+                " mac_id string," +
+                " type string," +
+                " ts bigint" +
+                ")"+getKafkaDDLSource("BM_log","ods_log")
+        );
+    }
+
+
 }
