@@ -9,7 +9,7 @@ package bean;
 
 public class smaple {
 //        TODO  1、读取日志数据并转化为jsonobj
-//        TODO  2、过滤出搜索日志数据
+//        TODO  2、过滤出 ??? 日志数据
 //        TODO  3、对数据进行清洗，将脏数据输出到侧道
 //        TODO  4、将数据输出到kafka上
 //        TODO  5、将脏数据输出到kafka上备用

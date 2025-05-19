@@ -17,12 +17,7 @@ public class Dwd_fact_trade_vip extends BaseApp {
 
     public static void main(String[] args) throws Exception {
 //        启动程序
-        new Dwd_fact_traffit_play()
-                .start(
-                    10014,
-                    4,
-                    "Dwd_fact_trade_vip"
-        );
+
     }
 
     @Override

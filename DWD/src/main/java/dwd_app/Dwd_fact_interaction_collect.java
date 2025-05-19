@@ -23,7 +23,7 @@ import static com.sun.xml.internal.bind.util.Which.which;
  * @createTime:2025-05-17 15:23:28
  **/
 
-/*
+/** 数据样本
     {
     "common":
         {
@@ -44,7 +44,7 @@ public class Dwd_fact_interaction_collect extends BaseApp {
     public static void main(String[] args) throws Exception {
 //        执行程序
         new Dwd_fact_interaction_collect().start(
-                10016,
+                10015,
                 4,
                 "Dwd_fact_interaction_collect"
         );

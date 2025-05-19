@@ -14,32 +14,44 @@ import util.FlinkSinkUtil;
 import util.FlinkSourceUtil;
 
 /**
- * @基本功能:   互动域——歌曲评论事实表
+ * @基本功能:   交互域——关注歌手事实表
  * @program:B1ueMusic
  * @author: B1ue
- * @createTime:2025-05-17 22:24:00
+ * @createTime:2025-05-17 22:45:42
  **/
 
 /**数据样本
- * {"common": {"comment_id": 758026, "song_id": 10021, "user_id": 10014, "content": "太棒了!", "province_id": 21, "comment_date": 1750375869000}, "channel": "PC", "mac_id": "937906742620298677", "type": "comment", "ts": 1750375869000}
+ *  {
+ *      "common":
+ *      {
+ *          "follow_id": 679364,
+ *          "singer_id": 1001,
+ *          "user_id": 10044,
+ *          "c_ts": 1751127248000
+ *      },
+ *      "channel": "PC",
+ *      "mac_id": "885502887076827336",
+ *      "type": "singer_follow",
+ *      "ts": 1751127248000
+ *      }
  */
 
-public class Dwd_fact_interaction_comment extends BaseApp {
+public class Dwd_fact_Interaction_singer_follow extends BaseApp {
 
     public static void main(String[] args) throws Exception {
 //        执行程序
-        new Dwd_fact_interaction_comment().start(
-                10017,
+        new Dwd_fact_Interaction_singer_follow().start(
+                10016,
                 4,
-                "Dwd_fact_interaction_comment"
+                "Dwd_fact_Interaction_singer_follow"
         );
     }
 
     @Override
     public void handle(StreamExecutionEnvironment env, StreamTableEnvironment tEnv) throws Exception {
-//        TODO  1、读取日志数据并转化为jsonobj
+        //        TODO  1、读取日志数据并转化为jsonobj
         SingleOutputStreamOperator<JSONObject> jsonObj = env
-                .fromSource(FlinkSourceUtil.getkafkaSource("BM_log", "Dwd_fact_interaction_comment"), WatermarkStrategy.noWatermarks(), "srarchDS")
+                .fromSource(FlinkSourceUtil.getkafkaSource("BM_log", "Dwd_fact_Interaction_singer_follow"), WatermarkStrategy.noWatermarks(), "srarchDS")
                 .map(new MapFunction<String, JSONObject>() {
                     @Override
                     public JSONObject map(String value) throws Exception {
@@ -56,12 +68,13 @@ public class Dwd_fact_interaction_comment extends BaseApp {
         SingleOutputStreamOperator<JSONObject> process = jsonObj.process(new ProcessFunction<JSONObject, JSONObject>() {
             @Override
             public void processElement(JSONObject value, ProcessFunction<JSONObject, JSONObject>.Context ctx, Collector<JSONObject> out) throws Exception {
-                if (value != null && value.getString("type").equals("comment"))
+                if (value != null && value.getString("type").equals("singer_follow"))
                     out.collect(value);
             }});
 
 //        TODO  3、对数据进行清洗，将脏数据输出到侧道
         OutputTag<String> Dirty = new OutputTag<String>("BM_Dirty") {};
+
         SingleOutputStreamOperator<String> result = process.process(new ProcessFunction<JSONObject, String>() {
             @Override
             public void processElement(JSONObject value, ProcessFunction<JSONObject, String>.Context ctx, Collector<String> out) throws Exception {
@@ -70,12 +83,11 @@ public class Dwd_fact_interaction_comment extends BaseApp {
                     String channel = value.getString("channel");
                     JSONObject data = value.getJSONObject("common");
 
-                    Long comment_id = data.getLong("comment_id");
+                    Long follow_id = data.getLong("follow_id");
                     Long userId = data.getLong("user_id");
-                    Long songId = data.getLong("song_id");
-                    Integer provinceId = data.getInteger("province_id");
+                    Long singerId = data.getLong("singer_id");
                     if (
-                            userId > 0L && songId > 0L && comment_id > 0L && (provinceId > 0 && provinceId < 35)
+                            userId > 0L && singerId > 0L && follow_id > 0L
                     ) {
                         data.put("channel", channel);
                         out.collect(data.toJSONString());
@@ -95,12 +107,12 @@ public class Dwd_fact_interaction_comment extends BaseApp {
         });
 
 //        TODO  4、将数据输出到kafka上
-        result.sinkTo(FlinkSinkUtil.getKafkaSink("BM_DWD_Interaction_Comment"));
+        result.sinkTo(FlinkSinkUtil.getKafkaSink("BM_DWD_Interaction_Singer_Follow"));
 
 //        TODO  5、将脏数据输出到kafka上备用
         result.getSideOutput(Dirty).sinkTo(FlinkSinkUtil.getKafkaSink("BM_Dirty"));
 
 //        TODO  6、启动程序
-        env.execute("歌曲评论事实表");
+        env.execute("关注歌手事实表");
     }
 }

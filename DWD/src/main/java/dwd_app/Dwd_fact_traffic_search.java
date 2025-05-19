@@ -42,7 +42,7 @@ public class Dwd_fact_traffic_search extends BaseApp {
     public static void main(String[] args) throws Exception {
 //        执行程序
         new Dwd_fact_traffic_search().start(
-                10017,
+                10018,
                 4,
                 "Dwd_fact_traffic_search"
         );
@@ -71,8 +71,7 @@ public class Dwd_fact_traffic_search extends BaseApp {
             public void processElement(JSONObject value, ProcessFunction<JSONObject, JSONObject>.Context ctx, Collector<JSONObject> out) throws Exception {
                 if (value != null && value.getString("type").equals("search"))
                     out.collect(value);
-            }
-        });
+            }});
 
 //        TODO  3、对数据进行清洗，将脏数据输出到侧道
         OutputTag<String> Dirty = new OutputTag<String>("BM_Dirty") {};
