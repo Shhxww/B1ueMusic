@@ -2,8 +2,11 @@ package dwd_app;
 
 import base.BaseApp;
 import com.alibaba.fastjson.JSONObject;
+import function.AsyncDimFunction;
+import function.DimAssFunction;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.MapFunction;
+import org.apache.flink.streaming.api.datastream.AsyncDataStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.ProcessFunction;
@@ -12,6 +15,8 @@ import org.apache.flink.util.Collector;
 import org.apache.flink.util.OutputTag;
 import util.FlinkSinkUtil;
 import util.FlinkSourceUtil;
+
+import java.util.concurrent.TimeUnit;
 
 /**
  * @基本功能:   交互域——关注歌手事实表
@@ -51,21 +56,21 @@ public class Dwd_fact_Interaction_singer_follow extends BaseApp {
     public void handle(StreamExecutionEnvironment env, StreamTableEnvironment tEnv) throws Exception {
 //        TODO  1、读取日志数据并转化为jsonobj
         SingleOutputStreamOperator<JSONObject> jsonObj = FlinkSourceUtil.getOdsLog(env,"Dwd_fact_Interaction_singer_follow");
-
 //        TODO  2、过滤出歌曲评论日志数据
         SingleOutputStreamOperator<JSONObject> process = jsonObj.process(new ProcessFunction<JSONObject, JSONObject>() {
             @Override
             public void processElement(JSONObject value, ProcessFunction<JSONObject, JSONObject>.Context ctx, Collector<JSONObject> out) throws Exception {
-                if (value != null && value.getString("type").equals("singer_follow"))
+                if (value != null && value.getString("type").equals("singer_follow")){
                     out.collect(value);
+                }
             }});
 
 //        TODO  3、对数据进行清洗，将脏数据输出到侧道
         OutputTag<String> Dirty = new OutputTag<String>("BM_Dirty") {};
 
-        SingleOutputStreamOperator<String> result = process.process(new ProcessFunction<JSONObject, String>() {
+        SingleOutputStreamOperator<JSONObject> result = process.process(new ProcessFunction<JSONObject, JSONObject>() {
             @Override
-            public void processElement(JSONObject value, ProcessFunction<JSONObject, String>.Context ctx, Collector<String> out) throws Exception {
+            public void processElement(JSONObject value, ProcessFunction<JSONObject, JSONObject>.Context ctx, Collector<JSONObject> out) throws Exception {
                 try {
 
                     String channel = value.getString("channel");
@@ -78,7 +83,7 @@ public class Dwd_fact_Interaction_singer_follow extends BaseApp {
                             userId > 0L && singerId > 0L && follow_id > 0L
                     ) {
                         data.put("channel", channel);
-                        out.collect(data.toJSONString());
+                        out.collect(data);
                     } else {
 //                        类型数值不符合标准
                         value.put("dirty_type", "1");
@@ -90,17 +95,27 @@ public class Dwd_fact_Interaction_singer_follow extends BaseApp {
                     value.put("dirty_type", "2");
                     ctx.output(Dirty, value.toJSONString());
                 }
-
             }
         });
 
-//        TODO  4、将数据输出到kafka上
-        result.sinkTo(FlinkSinkUtil.getKafkaSink("BM_DWD_Interaction_Singer_Follow"));
+        result.print();
 
-//        TODO  5、将脏数据输出到kafka上备用
+//        TODO  4、进行维度关联
+        Long ttl = 2*60L;
+//        关联用户维度表
+        SingleOutputStreamOperator<JSONObject> result_user = DimAssFunction.assUser(result,ttl);
+//        关联歌手维度表
+        SingleOutputStreamOperator<JSONObject> result_singer = DimAssFunction.assSinger(result_user,ttl);
+//        转换成Json字符串
+        SingleOutputStreamOperator<String> result_ss = result_singer.map(jsonObject -> jsonObject.toJSONString());
+        result_ss.print();
+//        TODO  5、将数据输出到kafka上
+        result_ss.sinkTo(FlinkSinkUtil.getKafkaSink("BM_DWD_Interaction_Singer_Follow"));
+
+//        TODO  6、将脏数据输出到kafka上备用
         result.getSideOutput(Dirty).sinkTo(FlinkSinkUtil.getKafkaSink("BM_Dirty"));
 
-//        TODO  6、启动程序
+//        TODO  7、启动程序
         env.execute("关注歌手事实表");
     }
 }

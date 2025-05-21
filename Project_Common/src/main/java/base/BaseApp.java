@@ -9,6 +9,8 @@ import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 
+import java.time.Duration;
+
 /**
  * @基本功能:   Flink基础程序
  * @program:B1ueMusic
@@ -34,21 +36,23 @@ public abstract class BaseApp {
         StreamTableEnvironment tEnv = StreamTableEnvironment.create(env);
 
 
-//        TODO 2、 配置检查点、重启策略
+//            TODO  2、配置检查点、重启策略
 //        2.1   启用检查点
         env.enableCheckpointing(5000L, CheckpointingMode.EXACTLY_ONCE);
+        CheckpointConfig checkpointConfig = env.getCheckpointConfig();
 //        2.2   设置检查点超时时间
-        env.getCheckpointConfig().setCheckpointTimeout(60000L);
+        checkpointConfig.setCheckpointTimeout(60000L);
 //        2.3   设置检查点间隔时间
-        env.getCheckpointConfig().setMinPauseBetweenCheckpoints(2000L);
+        checkpointConfig.setMinPauseBetweenCheckpoints(2000L);
 //        2.4   设置检查点在任务结束后进行保存，及其保存路径(保存在hdfs上要指定有权限的用户)
-        env.getCheckpointConfig().setExternalizedCheckpointCleanup(CheckpointConfig.ExternalizedCheckpointCleanup.RETAIN_ON_CANCELLATION);
-        env.getCheckpointConfig().setCheckpointStorage("hdfs://node1:8020/Flink_checkpoint/"+ck_path);
-//        2.5   设置重启策略（每3s重启一次，30天内仅能重启三次）
+        checkpointConfig.setExternalizedCheckpointCleanup(CheckpointConfig.ExternalizedCheckpointCleanup.RETAIN_ON_CANCELLATION);
+        checkpointConfig.setCheckpointStorage("hdfs://node1:8020/Flink_checkpoint/"+ck_path);
+//        2.5   设置（对齐超过10s启用）非对齐精准一次检查点
+        checkpointConfig.setAlignedCheckpointTimeout(Duration.ofSeconds(10));
+//        2.6   设置重启策略（每3s重启一次，30天内仅能重启三次）
         env.setRestartStrategy(RestartStrategies.failureRateRestart(1, Time.days(3),Time.seconds(3)));
-//        2.6   进行处理
+//        TODO  3、进行数据处理
         handle(env,tEnv);
-
     }
 
     public abstract void handle(StreamExecutionEnvironment env, StreamTableEnvironment tEnv) throws Exception;

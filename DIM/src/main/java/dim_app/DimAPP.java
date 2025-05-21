@@ -46,7 +46,6 @@ public class DimAPP extends BaseApp {
 //        TODO  1、读取维度层配置表数据
         MySqlSource<String> mySqlSource = FlinkSourceUtil.getMySqlSource("b1uemusic_dim_config", "dim_conf");
         DataStreamSource<String> confDS = env.fromSource(mySqlSource, WatermarkStrategy.noWatermarks(), "mysqlSource").setParallelism(1);
-//        confDS.print();
 
 //        TODO  2、转换数据类型
         SingleOutputStreamOperator<TableProcessDim> dimConf = confDS.map(new MapFunction<String, TableProcessDim>() {
@@ -106,6 +105,7 @@ public class DimAPP extends BaseApp {
 //        TODO  4、将数据流进行广播
         MapStateDescriptor<String,TableProcessDim> mapStateDescriptor = new MapStateDescriptor<>("dimConf", String.class, TableProcessDim.class);
         BroadcastStream<TableProcessDim> dimbroadcastDS = dimConf.broadcast(mapStateDescriptor);
+
 //        TODO  5、读取业务数据，并转换为jsonobj类型
         DataStreamSource<String> dimDS = env.fromSource(FlinkSourceUtil.getMySqlSource("b1uemusic"), WatermarkStrategy.noWatermarks(), "dimDS");
         SingleOutputStreamOperator<JSONObject> dimjsonDS = dimDS.map(new MapFunction<String, JSONObject>() {
@@ -114,8 +114,8 @@ public class DimAPP extends BaseApp {
                 return JSONObject.parseObject(value);
             }
         });
-        dimjsonDS.print();
-//        TODO  6、联合维度配置广播流，过滤出维度表数据，并向HBase维度表插入/删除（同时清空redis缓存）
+
+ //        TODO  6、联合维度配置广播流，过滤出维度表数据，并向HBase维度表插入/删除（同时清空redis缓存）
         dimjsonDS.connect(dimbroadcastDS).process(new BroadcastProcessFunction<JSONObject, TableProcessDim, JSONObject>() {
 //            设置HBase连接
             Connection hbaseconnection;
@@ -164,12 +164,13 @@ public class DimAPP extends BaseApp {
                         }
 //                        获取插入表数据
                         JSONObject data = jsonObj.getJSONObject("after");
+                        String rowkey = tableProcessDim.getSinkRowKey()+data.getLong(tableProcessDim.getSinkRowKey()).toString();
 //                        向HBase插入数据
                         HBaseUtil.putRow(
                                 hbaseconnection,
                                 "B1ueMusic_DIM",
                                 tableProcessDim.getSinkTable(),
-                                tableProcessDim.getSinkRowKey(),
+                                rowkey,
                                 tableProcessDim.getSinkFamily(),
                                 data
                         );
@@ -183,6 +184,7 @@ public class DimAPP extends BaseApp {
                 ctx.getBroadcastState(mapStateDescriptor).put(value.getSourceTable(),value);
             }
         });
+
 //        TODO  7、执行程序
         try {
             env.execute();

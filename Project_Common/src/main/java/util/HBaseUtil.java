@@ -92,6 +92,7 @@ public class HBaseUtil {
 //        判断表是否已经存在
         if (tableExists(connection, namepace, tableName)){
             System.out.println("HBase中"+tableName+"表已存在");
+            return;
         }
 
 //        创建表
@@ -108,6 +109,7 @@ public class HBaseUtil {
             admin.createTable(tableDescriptorBuilder.build());
             System.out.println("成功创建"+tableName+"表");
         } catch (IOException e) {
+            System.out.println("创建失败"+tableName+"表");
             throw new RuntimeException(e);
         }
 
@@ -165,8 +167,9 @@ public class HBaseUtil {
                 }
             }
             table.put(put);
-            System.out.println("成功向Hbase的"+namepace+"表"+tableName+"插入数据"+jsonObject);
+            System.out.println("成功向Hbase的"+namepace+"表"+tableName+"插入数据"+jsonObject+"; rowkey:"+rowkey);
         } catch (IOException e) {
+            System.out.println("向Hbase的"+namepace+"表"+tableName+"插入数据"+jsonObject+"失败");
             e.printStackTrace();
         }
 

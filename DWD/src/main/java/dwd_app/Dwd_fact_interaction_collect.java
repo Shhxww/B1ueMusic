@@ -2,8 +2,11 @@ package dwd_app;
 
 import base.BaseApp;
 import com.alibaba.fastjson.JSONObject;
+import function.AsyncDimFunction;
+import function.DimAssFunction;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.MapFunction;
+import org.apache.flink.streaming.api.datastream.AsyncDataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
@@ -13,6 +16,8 @@ import org.apache.flink.util.Collector;
 import org.apache.flink.util.OutputTag;
 import util.FlinkSinkUtil;
 import util.FlinkSourceUtil;
+
+import java.util.concurrent.TimeUnit;
 
 import static com.sun.xml.internal.bind.util.Which.which;
 
@@ -76,11 +81,12 @@ public class Dwd_fact_interaction_collect extends BaseApp {
             }
         });
 
-//        TODO  3、将数据进行清洗，将脏数据输出到侧道流，转化为事实表数据类型
+//        TODO  3、将数据进行清洗，将脏数据输出到侧道流
         OutputTag<String> collectDirty = new OutputTag<String>("collect_dirty"){};
-        SingleOutputStreamOperator<String> result = cleanDS.process(new ProcessFunction<JSONObject, String>() {
+
+        SingleOutputStreamOperator<JSONObject> result = cleanDS.process(new ProcessFunction<JSONObject, JSONObject>() {
             @Override
-            public void processElement(JSONObject value, ProcessFunction<JSONObject, String>.Context ctx, Collector<String> out) throws Exception {
+            public void processElement(JSONObject value, ProcessFunction<JSONObject, JSONObject>.Context ctx, Collector<JSONObject> out) throws Exception {
                 try {
                     String channel = value.getString("channel");
                     JSONObject data =value.getJSONObject("common");
@@ -89,7 +95,7 @@ public class Dwd_fact_interaction_collect extends BaseApp {
                     Long collectId = data.getLong("collect_id");
                     if (userId > 0L && songId > 0L && collectId > 0L) {
                         data.put("channel", channel);
-                        out.collect(data.toJSONString());
+                        out.collect(data);
                     } else {
                         value.put("dirty_type", "1");
                         ctx.output(collectDirty, value.toJSONString());
@@ -101,12 +107,22 @@ public class Dwd_fact_interaction_collect extends BaseApp {
             }
         });
 
-//        TODO  4、将数据输出到kafka上
-        result.sinkTo(FlinkSinkUtil.getKafkaSink("BM_DWD_Interaction_Collect"));
-//        TODO  5、将侧道流的脏数据输出到kafka上备用
+//        TODO  4、进行维度关联
+        Long ttl = 2*60L;
+//        关联用户维度表
+        SingleOutputStreamOperator<JSONObject> result_user = DimAssFunction.assUser(result,ttl);
+//        关联歌曲维度表
+        SingleOutputStreamOperator<JSONObject> result_song = DimAssFunction.assSong(result_user,ttl);
+//        转换成Json字符串
+        SingleOutputStreamOperator<String> result_ss = result_song.map(jsonObject -> jsonObject.toJSONString());
+
+//        TODO  5、将数据输出到kafka上
+        result_ss.sinkTo(FlinkSinkUtil.getKafkaSink("BM_DWD_Interaction_Collect"));
+
+//        TODO  6、将侧道流的脏数据输出到kafka上备用
         result.getSideOutput(collectDirty).sinkTo(FlinkSinkUtil.getKafkaSink("BM_Dirty"));
 
-//        TODO  6、启动程序
+//        TODO  7、启动程序
         env.execute("歌曲收藏事实表");
     }
 }

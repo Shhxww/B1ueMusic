@@ -12,7 +12,12 @@ import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 public class FlinkSQLUtil {
     private static String kafkaBroke = "node1:9092,node2:9092,node3:9092";
 
-//    获取mysql-cdc连接器
+    /**
+     * 获取mysql-cdc连接器
+     * @param database  目标数据库
+     * @param table 目标表名
+     * @return  mysql-cdc连接
+     */
     public static String getMySQLSource(String database,String table){
         return "WITH (\n" +
                 "     'connector' = 'mysql-cdc',\n" +
@@ -22,6 +27,25 @@ public class FlinkSQLUtil {
                 "     'password' = '000000',\n" +
                 "     'database-name' = '"+database+"',\n" +
                 "     'table-name' = '"+table+"')";
+    }
+
+    /**
+     * 获取Hive连接器配置（按天分区）
+     * @param database Hive数据库名
+     * @return Hive连接器WITH配置
+     */
+    public static String getHiveSink(String database) {
+        return "WITH (\n" +
+                "     'connector' = 'hive',\n" +
+                "     'default-database' = '" + database + "',\n" +
+                "     'hive-conf-dir' = 'hdfs://node1:8020/opt/hive/conf',\n" +
+                "     'hadoop-conf-dir' = 'hdfs://node1:8020/opt/hadoop/conf',\n" +
+                "     'sink.rolling-policy.rollover-interval' = '10 min',\n" +
+                "     'sink.rolling-policy.file-size' = '128MB',\n" +
+                "     'sink.partition-commit.trigger' = 'partition-time',\n" +
+                "     'sink.partition-commit.delay' = '10 min',\n" +
+                "     'sink.partition-commit.policy.kind' = 'metastore,success-file'\n" +
+                ")";
     }
 
 
@@ -74,6 +98,8 @@ public class FlinkSQLUtil {
                 ")"+getKafkaDDLSource("BM_log","ods_log")
         );
     }
+
+
 
 
 }
