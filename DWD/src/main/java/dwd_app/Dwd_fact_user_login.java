@@ -3,6 +3,9 @@ package dwd_app;
 import base.BaseApp;
 import com.alibaba.fastjson.JSONObject;
 import com.sun.xml.internal.bind.v2.TODO;
+import function.AsyncDimFunction;
+import function.DimAssFunction;
+import org.apache.flink.streaming.api.datastream.AsyncDataStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.ProcessFunction;
@@ -14,6 +17,8 @@ import org.apache.flink.util.OutputTag;
 import util.FlinkSQLUtil;
 import util.FlinkSinkUtil;
 import util.FlinkSourceUtil;
+
+import java.util.concurrent.TimeUnit;
 
 /**
  * @基本功能:   用户域——用户登录事实表
@@ -31,7 +36,7 @@ import util.FlinkSourceUtil;
                "user_id": 10021,
                "province_id": 1,
               "login_ts": 1748988324000
-              },
+            },
           "channel": "APP",
           "mac_id": "532223464136820614",
           "type": "login",
@@ -64,11 +69,12 @@ public class Dwd_fact_user_login extends BaseApp {
             }});
 
 //        TODO  3、对数据进行清洗，将脏数据输出到侧道
+//        定义脏数据侧道输出标签
         OutputTag<String> Dirty = new OutputTag<String>("BM_Dirty") {};
 
-        SingleOutputStreamOperator<String> result = process.process(new ProcessFunction<JSONObject, String>() {
+        SingleOutputStreamOperator<JSONObject> result = process.process(new ProcessFunction<JSONObject, JSONObject>() {
             @Override
-            public void processElement(JSONObject value, ProcessFunction<JSONObject, String>.Context ctx, Collector<String> out) throws Exception {
+            public void processElement(JSONObject value, ProcessFunction<JSONObject, JSONObject>.Context ctx, Collector<JSONObject> out) throws Exception {
                 try {
 
                     String channel = value.getString("channel");
@@ -82,7 +88,7 @@ public class Dwd_fact_user_login extends BaseApp {
                             userId > 0L && loginId > 0L && (provinceId > 0 && provinceId < 35)
                     ) {
                         data.put("channel", channel);
-                        out.collect(data.toJSONString());
+                        out.collect(data);
                     } else {
 //                        类型数值不符合标准
                         value.put("dirty_type", "1");
@@ -94,17 +100,25 @@ public class Dwd_fact_user_login extends BaseApp {
                     value.put("dirty_type", "2");
                     ctx.output(Dirty, value.toJSONString());
                 }
-
             }
         });
 
-//        TODO  4、将数据输出到kafka上
-        result.sinkTo(FlinkSinkUtil.getKafkaSink("BM_DWD_User_Login"));
+//        TODO  4、进行维度关联
+        Long ttl = 2*60L;
+//        关联用户维度表
+        SingleOutputStreamOperator<JSONObject> result_user = DimAssFunction.assUser(result,ttl);
+//        关联省份维度表
+        SingleOutputStreamOperator<JSONObject> result_province = DimAssFunction.assProvince(result_user,ttl);
+//        转换成Json字符串
+        SingleOutputStreamOperator<String> result_ss = result_province.map(jsonObject -> jsonObject.toJSONString());
 
-//        TODO  5、将脏数据输出到kafka上备用
+//        TODO  5、将数据输出到kafka上
+        result_ss.sinkTo(FlinkSinkUtil.getKafkaSink("BM_DWD_User_Login"));
+
+//        TODO  6、将脏数据输出到kafka上备用
         result.getSideOutput(Dirty).sinkTo(FlinkSinkUtil.getKafkaSink("BM_Dirty"));
 
-//        TODO  6、启动程序
+//        TODO  7、启动程序
         env.execute("用户登录事实表");
     }
 }

@@ -122,6 +122,7 @@ public class FlinkSourceUtil {
                             JSONObject jsonObject = JSONObject.parseObject(value);
                             return jsonObject;
                         } catch (Exception e) {
+                            System.out.println("1111");
                             return null;
                         }
                     }

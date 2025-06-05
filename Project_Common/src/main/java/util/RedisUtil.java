@@ -36,7 +36,7 @@ public class RedisUtil {
         pool = new JedisPool(config, "node1", 6379);
     }
 
-//    获取Jedis连接
+//    获取Jedis同步连接
     public static Jedis getJedis() {
         Jedis jedis = pool.getResource();
         jedis.select(4); // 直接选择 4 号库
@@ -59,6 +59,10 @@ public class RedisUtil {
             return JSON.parseObject(jsonStr);
         }
         return null;
+    }
+
+    private static String getKey(String tableName, String id) {
+        return tableName + ":" + id;
     }
 
     /**
@@ -86,6 +90,8 @@ public class RedisUtil {
 
 //--------------------------------------------------------------------------------------------
 
+
+
     /**
  * 获取到 redis 的异步连接
  * @return 异步链接对象
@@ -110,13 +116,12 @@ public class RedisUtil {
     /**
  * 异步的方式从 redis 读取维度数据
  * @param redisAsyncConn 异步连接
- * @param tableName 表名
- * @param id id 的值
+ * @param key key 的值
  * @return 读取到维度数据,封装的 json 对象中
  */
-    public static JSONObject readDimAsync(StatefulRedisConnection<String, String> redisAsyncConn, String tableName, String id) {
+    public static JSONObject readDimAsync(StatefulRedisConnection<String, String> redisAsyncConn, String key) {
     RedisAsyncCommands<String, String> asyncCommand = redisAsyncConn.async();
-    String key = getKey(tableName, id);
+
     try {
 //        读取缓存中的数据
         String json = asyncCommand.get(key).get();
@@ -130,27 +135,23 @@ public class RedisUtil {
     return null;
 }
 
-    /**
-     * 把维度异步的写入到 redis 中
-     * @param redisAsyncConn  到 redis 的异步连接
-     * @param tableName 表名
-     * @param id    rowkey
-     * @param dim 要写入的维度数据
-     */
-    public static void writeDimAsync(StatefulRedisConnection<String, String> redisAsyncConn, String tableName, String id, JSONObject dim) {
-        String key = getKey(tableName, id);
 
+    /**
+     * 把维度数据的写入到 Redis中
+     * @param redisAsyncConn    redis 的异步连接
+     * @param key   rowkey  行键
+     * @param dim   要写入的维度数据
+     * @param ttl   保留时间
+     */
+    public static void writeDimAsync(StatefulRedisConnection<String, String> redisAsyncConn, String key, JSONObject dim,Long ttl) {
         // 1. 得到异步命令
         RedisAsyncCommands<String, String> asyncCommand = redisAsyncConn.async();
 
         // 2. 写入并设置 ttl
-        asyncCommand.setex(key, 24*60*60L, dim.toJSONString());
+        asyncCommand.setex(key, ttl, dim.toJSONString());
 
     }
 
-    public static String getKey(String tableName, String id) {
-        return tableName + ":" + id;
-    }
 
 
 }
