@@ -6,7 +6,7 @@
 ### 业务总线矩阵
 ![image](https://github.com/user-attachments/assets/d116ec12-d6cc-4662-b625-025a6f061ddd)
 ### 统计指标
-
+![image](https://github.com/user-attachments/assets/e3d28838-bce8-48c6-9255-30241b8e9cd3)
 ## 🎶项目架构-流程
 ![image](https://github.com/user-attachments/assets/aa860e72-12ec-48b4-a5fb-ab8dd46331a2)
 
