@@ -56,7 +56,7 @@ public class Dwd_fact_interaction_collect extends BaseApp {
     }
 
     @Override
-    public void handle(StreamExecutionEnvironment env, StreamTableEnvironment tEnv) throws Exception {
+    public void handle(StreamExecutionEnvironment env, StreamTableEnvironment tEnv,OutputTag<String> Dirty, OutputTag<String> Late) throws Exception {
 //        TODO  1、读取日志数据、并转化为jsonobj类型
         DataStreamSource<String> collectDS = env.fromSource(FlinkSourceUtil.getkafkaSource("BM_log", "Dwd_fact_interaction_collect"), WatermarkStrategy.noWatermarks(), "collectDS");
         SingleOutputStreamOperator<JSONObject> jsonObj = collectDS.map(new MapFunction<String, JSONObject>() {
@@ -82,7 +82,6 @@ public class Dwd_fact_interaction_collect extends BaseApp {
         });
 
 //        TODO  3、将数据进行清洗，将脏数据输出到侧道流
-        OutputTag<String> collectDirty = new OutputTag<String>("collect_dirty"){};
 
         SingleOutputStreamOperator<JSONObject> result = cleanDS.process(new ProcessFunction<JSONObject, JSONObject>() {
             @Override
@@ -98,11 +97,11 @@ public class Dwd_fact_interaction_collect extends BaseApp {
                         out.collect(data);
                     } else {
                         value.put("dirty_type", "1");
-                        ctx.output(collectDirty, value.toJSONString());
+                        ctx.output(Dirty, value.toJSONString());
                     }
                 }catch (Exception e){
                     value.put("dirty_type", "2");
-                    ctx.output(collectDirty, value.toJSONString());
+                    ctx.output(Dirty, value.toJSONString());
                 }
             }
         });
@@ -120,7 +119,7 @@ public class Dwd_fact_interaction_collect extends BaseApp {
         result_ss.sinkTo(FlinkSinkUtil.getKafkaSink("BM_DWD_Interaction_Collect"));
 
 //        TODO  6、将侧道流的脏数据输出到kafka上备用
-        result.getSideOutput(collectDirty).sinkTo(FlinkSinkUtil.getKafkaSink("BM_Dirty"));
+        result.getSideOutput(Dirty).sinkTo(FlinkSinkUtil.getKafkaSink("BM_Dirty"));
 
 //        TODO  7、启动程序
         env.execute("歌曲收藏事实表");

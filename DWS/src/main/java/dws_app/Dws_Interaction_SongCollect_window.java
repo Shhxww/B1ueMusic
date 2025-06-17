@@ -40,21 +40,21 @@ import java.time.Duration;
  * {"singer_id":"3001","song_id":10050,"song_duration":"249","collect_id":680120,"user_id":10054,"c_ts":1748793600240,"user_name":"孟非","song_type":"4","channel":"APP","user_gender":"男","song_name":"老人と海"}
  */
 
-public class Dws_Interaction_SongPopularity extends BaseApp {
+public class Dws_Interaction_SongCollect_window extends BaseApp {
 
     public static void main(String[] args) throws Exception {
-        new Dws_Interaction_SongPopularity().start(
+        new Dws_Interaction_SongCollect_window().start(
                 10024,
-                1,
-                "Dws_Interaction_SongPopularity"
+                4,
+                "Dws_Interaction_SongCollect_window"
         );
     }
 
     @Override
-    public void handle(StreamExecutionEnvironment env, StreamTableEnvironment tEnv) throws Exception {
+    public void handle(StreamExecutionEnvironment env, StreamTableEnvironment tEnv,OutputTag<String> Dirty, OutputTag<String> Late) throws Exception {
 //        TODO  1、读取歌曲收藏事实表数据
         DataStreamSource<String> songCollectDS = env.fromSource(
-                        FlinkSourceUtil.getkafkaSource("BM_DWD_Interaction_Collect", "Dws_Interaction_SongPopularity"),
+                        FlinkSourceUtil.getkafkaSource("BM_DWD_Interaction_Collect", "Dws_Interaction_SongCollect_window"),
                         WatermarkStrategy.noWatermarks(),
                         "songCollectDS"
                 );
@@ -101,17 +101,24 @@ public class Dws_Interaction_SongPopularity extends BaseApp {
                 new ReduceFunction<SongCollectEvent>() {
                     @Override
                     public SongCollectEvent reduce(SongCollectEvent value1, SongCollectEvent value2) throws Exception {
-                        value1.setCollectCount(value1.getCollectCount() + value2.getCollectCount());
-                        return value1;
+                        return SongCollectEvent
+                                .builder()
+                                .songId(value1.getSongId())
+                                .songName(value1.getSongName())
+                                .songType(value1.getSongType())
+                                .songDuration(value1.getSongDuration())
+                                .singerId(value1.getSingerId())
+                                .collectCount(value1.getCollectCount() + value2.getCollectCount())
+                                .updateTime(value1.getUpdateTime())
+                                .build();
                     }
                 },
                 new ProcessWindowFunction<SongCollectEvent, SongCollectEvent, Long, TimeWindow>() {
                     @Override
                     public void process(Long aLong, ProcessWindowFunction<SongCollectEvent, SongCollectEvent, Long, TimeWindow>.Context context, Iterable<SongCollectEvent> elements, Collector<SongCollectEvent> out) throws Exception {
+
                         SongCollectEvent sce = elements.iterator().next();
 
-                        sce.setWindowStart(DateFormatUtil.tsToDateTime(context.window().getStart()));
-                        sce.setWindowEnd(DateFormatUtil.tsToDateTime(context.window().getEnd()));
                         sce.setPartitionDate(DateFormatUtil.tsToDate(context.window().getEnd()));
 
                         out.collect(sce);
@@ -119,16 +126,13 @@ public class Dws_Interaction_SongPopularity extends BaseApp {
                     }
                 }
         );
-//        Dws_Interaction_SongPopularity.SongCollectEvent(songName=老人と海, songId=10050, singerId=3001, songDuration=249, songType=4, collectCount=50641, windowStart=2025-06-01 00:49:55, windowEnd=2025-06-02 00:49:55, updateTime=1748793600240, partitionDate=2025-06-02)
+//        Dws_Interaction_SongCollect_window.SongCollectEvent(songName=老人と海, songId=10050, singerId=3001, songDuration=249, songType=4, collectCount=50641, windowStart=2025-06-01 00:49:55, windowEnd=2025-06-02 00:49:55, updateTime=1748793600240, partitionDate=2025-06-02)
 
 //        TODO   6、将结果转化jsonStr在写入到 Doris中去
-        result.map(new DorisMapFunction<>()).sinkTo(FlinkSinkUtil.getDorisSink(""));
+        result.map(new DorisMapFunction<>()).sinkTo(FlinkSinkUtil.getDorisSink("B1ueMusic.Dws_Interaction_SongCollect_window"));
 
 //        TODO  7、启动程序
-        env.execute("Dws_Interaction_SingerPopularity");
-
-
-
+        env.execute("Dws_Interaction_SongCollect_window");
         }
 
 
@@ -144,8 +148,6 @@ public class Dws_Interaction_SongPopularity extends BaseApp {
         private String songDuration;
         private String songType;
         private Long collectCount;
-        private String windowStart;
-        private String windowEnd;
         @JSONField(serialize = false)  // 单纯拿来推进水位线，在序列化转换成jsonStr时不包含进去
         private Long updateTime;
         private String partitionDate;

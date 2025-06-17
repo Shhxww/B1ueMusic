@@ -55,7 +55,7 @@ public class Dwd_fact_interaction_comment extends BaseApp {
     }
 
     @Override
-    public void handle(StreamExecutionEnvironment env, StreamTableEnvironment tEnv) throws Exception {
+    public void handle(StreamExecutionEnvironment env, StreamTableEnvironment tEnv,OutputTag<String> Dirty, OutputTag<String> Late) throws Exception {
 //        TODO  1、读取日志数据并转化为jsonobj
         SingleOutputStreamOperator<JSONObject> jsonObj = env
                 .fromSource(FlinkSourceUtil.getkafkaSource("BM_log", "Dwd_fact_interaction_comment"), WatermarkStrategy.noWatermarks(), "srarchDS")
@@ -80,8 +80,6 @@ public class Dwd_fact_interaction_comment extends BaseApp {
             }});
 
 //        TODO  3、对数据进行清洗，将脏数据输出到侧道
-//        定义脏数据侧道输出标签
-        OutputTag<String> Dirty = new OutputTag<String>("BM_Dirty") {};
         SingleOutputStreamOperator<JSONObject> result = process.process(new ProcessFunction<JSONObject, JSONObject>() {
             @Override
             public void processElement(JSONObject value, ProcessFunction<JSONObject, JSONObject>.Context ctx, Collector<JSONObject> out) throws Exception {
@@ -127,9 +125,11 @@ public class Dwd_fact_interaction_comment extends BaseApp {
 //        TODO  5、将数据输出到kafka上
         result_ss.sinkTo(FlinkSinkUtil.getKafkaSink("BM_DWD_Interaction_Comment"));
         result_ss.print();
+
 //        TODO  6、将脏数据输出到kafka上备用
         result.getSideOutput(Dirty).sinkTo(FlinkSinkUtil.getKafkaSink("BM_Dirty"));
 //      {"song_duration":"204","user_name":"江珊","song_type":"3","channel":"APP","comment_date":1748793600600,"user_gender":"女","song_name":"那XX(That XX)","comment_id":853261,"content":"好难听","province_name":"天津市","singer_id":"2001","song_id":10028,"user_id":10057,"province_id":2}
+
 //        TODO  7、启动程序
         env.execute("歌曲评论事实表");
     }
