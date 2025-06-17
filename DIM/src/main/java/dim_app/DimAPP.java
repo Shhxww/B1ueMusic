@@ -1,11 +1,9 @@
 package dim_app;
 
 import base.BaseApp;
-import base.DWSBaseApp;
 import bean.TableProcessDim;
 import com.alibaba.fastjson.JSONObject;
 import com.ververica.cdc.connectors.mysql.source.MySqlSource;
-import io.debezium.data.Json;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.state.MapStateDescriptor;
@@ -19,7 +17,7 @@ import org.apache.flink.streaming.api.functions.ProcessFunction;
 import org.apache.flink.streaming.api.functions.co.BroadcastProcessFunction;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.util.Collector;
-import org.apache.hadoop.hbase.client.Admin;
+import org.apache.flink.util.OutputTag;
 import org.apache.hadoop.hbase.client.Connection;
 import util.FlinkSourceUtil;
 import util.HBaseUtil;
@@ -42,7 +40,7 @@ public class DimAPP extends BaseApp {
     }
 
     @Override
-    public void handle(StreamExecutionEnvironment env, StreamTableEnvironment tEnv) {
+    public void handle(StreamExecutionEnvironment env, StreamTableEnvironment tEnv, OutputTag<String> Dirty, OutputTag<String> Late) {
 //        TODO  1、读取维度层配置表数据
         MySqlSource<String> mySqlSource = FlinkSourceUtil.getMySqlSource("b1uemusic_dim_config", "dim_conf");
         DataStreamSource<String> confDS = env.fromSource(mySqlSource, WatermarkStrategy.noWatermarks(), "mysqlSource").setParallelism(1);

@@ -32,6 +32,7 @@ import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.util.Collector;
+import org.apache.flink.util.OutputTag;
 import util.DateFormatUtil;
 import util.FlinkSQLUtil;
 import util.FlinkSinkUtil;
@@ -82,7 +83,7 @@ public class Dws_Traffic_SongPlay_OnlineNum extends BaseApp {
     }
 
     @Override
-    public void handle(StreamExecutionEnvironment env, StreamTableEnvironment tEnv) throws Exception {
+    public void handle(StreamExecutionEnvironment env, StreamTableEnvironment tEnv, OutputTag<String> Dirty, OutputTag<String> Late) throws Exception {
 
 //        TODO  1、读取歌曲播放事实表数据
         DataStreamSource<String> songPlayDS = env
@@ -105,6 +106,7 @@ public class Dws_Traffic_SongPlay_OnlineNum extends BaseApp {
                 SongChangeEvent enter = SongChangeEvent.builder()
                         .songId(jsonObject.getLong("song_id"))
                         .songName(jsonObject.getString("song_name"))
+                        .singerName(jsonObject.getString("singer_name"))
                         .userId(jsonObject.getLong("user_id"))
                         .userName(jsonObject.getString("user_name"))
                         .changeType("enter")
@@ -133,7 +135,7 @@ public class Dws_Traffic_SongPlay_OnlineNum extends BaseApp {
 //        TODO  3、按照歌曲id进行分组
         KeyedStream<SongChangeEvent, Long> songChangeEventLongKeyedStream = process.keyBy(s -> s.getSongId());
 
-//        TODO  4、
+//        TODO  4、统计歌曲在线收听人数，定时器每 5s输出一次
         SingleOutputStreamOperator<SongOnlineStatus> processed = songChangeEventLongKeyedStream.process(
                 new KeyedProcessFunction<Long, SongChangeEvent, SongOnlineStatus>() {
 
@@ -198,7 +200,7 @@ public class Dws_Traffic_SongPlay_OnlineNum extends BaseApp {
                         SongOnlineStatus info = sos.value();
                         if (info != null && currentOnlineCount >= 0) {
                             info.setCurrentOnlineCount(currentOnlineCount);
-                            info.setUpdateTime(DateFormatUtil.tsToDate(timestamp));
+                            info.setPartitionTime(DateFormatUtil.tsToDate(timestamp));
                             sos.update(info);
                             out.collect(info);
                         }
@@ -215,7 +217,7 @@ public class Dws_Traffic_SongPlay_OnlineNum extends BaseApp {
         SingleOutputStreamOperator<String> result = processed.map(new DorisMapFunction<>());
 
 //        TODO  6、输出至 Doris
-        result.sinkTo(FlinkSinkUtil.getDorisSink("B1ueMusic.Dws_Traffic_SongPlay_OnlineNum_window"));
+        result.sinkTo(FlinkSinkUtil.getDorisSink("B1ueMusic.Dws_Traffic_SongPlay_OnlineNum"));
 
 //        TODO  7、执行程序
         env.execute("歌曲在线人数");
@@ -251,7 +253,7 @@ public class Dws_Traffic_SongPlay_OnlineNum extends BaseApp {
         private String songName;
         private String singerName;
         private Long currentOnlineCount;
-        private String updateTime;
+        private String partitionTime;
     }
 
 

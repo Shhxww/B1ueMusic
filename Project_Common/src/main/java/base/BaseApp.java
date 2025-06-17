@@ -8,6 +8,7 @@ import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
+import org.apache.flink.util.OutputTag;
 
 import java.time.Duration;
 
@@ -34,7 +35,8 @@ public abstract class BaseApp {
         System.setProperty("HADOOP_USER_NAME", "root");
 //        1.4   创建动态表环境
         StreamTableEnvironment tEnv = StreamTableEnvironment.create(env);
-
+//        1.5   本地测试使用，上传服务器要注释
+        System.setProperty("hadoop.home.dir", "D:\\Hadoop");
 
 //            TODO  2、配置检查点、重启策略
 //        2.1   启用检查点
@@ -48,12 +50,33 @@ public abstract class BaseApp {
         checkpointConfig.setExternalizedCheckpointCleanup(CheckpointConfig.ExternalizedCheckpointCleanup.RETAIN_ON_CANCELLATION);
         checkpointConfig.setCheckpointStorage("hdfs://node1:8020/Flink_checkpoint/"+ck_path);
 //        2.5   设置（对齐超过10s启用）非对齐精准一次检查点
-        checkpointConfig.setAlignedCheckpointTimeout(Duration.ofSeconds(10));
+        checkpointConfig.setAlignedCheckpointTimeout(Duration.ofSeconds(30));
 //        2.6   设置重启策略（每3s重启一次，30天内仅能重启三次）
         env.setRestartStrategy(RestartStrategies.failureRateRestart(1, Time.days(3),Time.seconds(3)));
-//        TODO  3、进行数据处理
-        handle(env,tEnv);
+
+//        TODO  3、设置脏数据流、迟到数据流标签
+        OutputTag<String> dirtyTag = new OutputTag<String>("BM_Dirty") {};
+        OutputTag<String> lateTag = new OutputTag<String>("BM_Late") {};
+
+//        TODO  4、进行数据处理
+        handle(env,tEnv,dirtyTag,lateTag);
+
     }
 
-    public abstract void handle(StreamExecutionEnvironment env, StreamTableEnvironment tEnv) throws Exception;
+    /**
+     * 处理逻辑
+     * @param env   数据流环境
+     * @param tEnv  动态表环境
+     * @param Dirty 脏数据流
+     * @param Late  迟到流
+     * @throws Exception
+     */
+    public abstract void handle(
+            StreamExecutionEnvironment env,
+            StreamTableEnvironment tEnv,
+            OutputTag<String> Dirty,
+            OutputTag<String> Late
+    ) throws Exception;
+
+
 }
