@@ -53,7 +53,7 @@ public class Dwd_fact_Interaction_singer_follow extends BaseApp {
     }
 
     @Override
-    public void handle(StreamExecutionEnvironment env, StreamTableEnvironment tEnv) throws Exception {
+    public void handle(StreamExecutionEnvironment env, StreamTableEnvironment tEnv,OutputTag<String> Dirty, OutputTag<String> Late) throws Exception {
 //        TODO  1、读取日志数据并转化为jsonobj
         SingleOutputStreamOperator<JSONObject> jsonObj = FlinkSourceUtil.getOdsLog(env,"Dwd_fact_Interaction_singer_follow");
 //        TODO  2、过滤出歌曲评论日志数据
@@ -66,8 +66,6 @@ public class Dwd_fact_Interaction_singer_follow extends BaseApp {
             }});
 
 //        TODO  3、对数据进行清洗，将脏数据输出到侧道
-        OutputTag<String> Dirty = new OutputTag<String>("BM_Dirty") {};
-
         SingleOutputStreamOperator<JSONObject> result = process.process(new ProcessFunction<JSONObject, JSONObject>() {
             @Override
             public void processElement(JSONObject value, ProcessFunction<JSONObject, JSONObject>.Context ctx, Collector<JSONObject> out) throws Exception {

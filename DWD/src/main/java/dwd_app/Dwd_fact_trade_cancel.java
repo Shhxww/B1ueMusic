@@ -10,6 +10,7 @@ import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
+import org.apache.flink.util.OutputTag;
 import util.FlinkSQLUtil;
 import util.FlinkSourceUtil;
 
@@ -34,44 +35,9 @@ public class Dwd_fact_trade_cancel extends BaseApp {
     }
 
     @Override
-    public void handle(StreamExecutionEnvironment env, StreamTableEnvironment tEnv) throws Exception {
+    public void handle(StreamExecutionEnvironment env, StreamTableEnvironment tEnv, OutputTag<String> Dirty, OutputTag<String> Late) throws Exception {
 //        TODO  1、读取mysql上的取消订单业务数据
-        tEnv.executeSql("create table order_cancel( " +
-                "order_cancel_id bigint," +
-                "order_id bigint," +
-                "order_type int," +
-                "cancel_reason string," +
-                "status string," +
-                "cancel_ts bigint," +
-                "primary key(order_cancel_id) not enforced" +
-                ")"+FlinkSQLUtil.getMySQLSource("b1uemusic","ods_cancel_order")
-        );
 
-//        TODO  2、筛选出成功的取消订单业务数据
-        Table result = tEnv.sqlQuery(
-                "select " +
-                " order_cancel_id," +
-                " order_id," +
-                " order_type," +
-                " cancel_reason," +
-                " cancel_ts " +
-                " from order_cancel " +
-                " where status = '101' ");
-
-//        TODO  3、创建取消订单事实表映射表
-         tEnv.executeSql(
-                 "create table dwd_fact_trade_cancel(" +
-                "order_cancel_id bigint," +
-                "order_id bigint," +
-                "order_type int," +
-                "cancel_reason string," +
-                "cancel_ts bigint," +
-                 "primary key(order_cancel_id) not enforced" +
-                ")"+FlinkSQLUtil.getUpsetKafkaDDLSink("BM_DWD_Trade_Order_Cancel")
-         );
-
-//        TODO  4、将数据输出到kafka上
-        result.executeInsert("dwd_fact_trade_cancel");
 
     }
 }

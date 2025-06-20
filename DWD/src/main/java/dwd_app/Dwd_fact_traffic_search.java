@@ -54,7 +54,7 @@ public class Dwd_fact_traffic_search extends BaseApp {
     }
 
     @Override
-    public void handle(StreamExecutionEnvironment env, StreamTableEnvironment tEnv) throws Exception {
+    public void handle(StreamExecutionEnvironment env, StreamTableEnvironment tEnv,OutputTag<String> Dirty, OutputTag<String> Late) throws Exception {
 //        TODO  1、读取日志数据并转化为 jsonObject，并过滤出查询日志数据
         SingleOutputStreamOperator<JSONObject> search = FlinkSourceUtil.getOdsLog(env, "Dwd_fact_traffic_search");
 
@@ -70,8 +70,6 @@ public class Dwd_fact_traffic_search extends BaseApp {
 
 
 //        TODO  3、对数据进行清洗，将脏数据输出到侧道
-//        定义脏数据侧道输出标签
-        OutputTag<String> Dirty = new OutputTag<String>("BM_Dirty") {};
         SingleOutputStreamOperator<JSONObject> result = jsonObj.process(new ProcessFunction<JSONObject, JSONObject>() {
             @Override
             public void processElement(JSONObject value, ProcessFunction<JSONObject, JSONObject>.Context ctx, Collector<JSONObject> out) throws Exception {
@@ -108,8 +106,11 @@ public class Dwd_fact_traffic_search extends BaseApp {
         SingleOutputStreamOperator<JSONObject> result_province = DimAssFunction.assProvince(result_user,ttl);
 //        关联歌曲维度表
         SingleOutputStreamOperator<JSONObject> result_song = DimAssFunction.assSong(result_province,ttl);
+//        关联歌手维度表
+        SingleOutputStreamOperator<JSONObject> result_dim = DimAssFunction.assSinger(result_song, ttl);
+
 //        转换成Json字符串
-        SingleOutputStreamOperator<String> result_ss = result_song.map(jsonObject -> jsonObject.toJSONString());
+        SingleOutputStreamOperator<String> result_ss = result_dim.map(jsonObject -> jsonObject.toJSONString());
 
 //        TODO  5、将数据输出到kafka上
         result_ss.sinkTo(FlinkSinkUtil.getKafkaSink("BM_DWD_Traffic_Search"));

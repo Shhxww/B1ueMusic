@@ -5,6 +5,11 @@ import com.alibaba.fastjson.JSONObject;
 import com.sun.xml.internal.bind.v2.TODO;
 import function.AsyncDimFunction;
 import function.DimAssFunction;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.streaming.api.datastream.AsyncDataStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
@@ -50,13 +55,13 @@ public class Dwd_fact_user_login extends BaseApp {
 //        启动程序
         new Dwd_fact_user_login().start(
                 10013,
-                4,
+                1,
                 "Dwd_fact_user_login"
         );
     }
 
     @Override
-    public void handle(StreamExecutionEnvironment env, StreamTableEnvironment tEnv) throws Exception {
+    public void handle(StreamExecutionEnvironment env, StreamTableEnvironment tEnv,OutputTag<String> Dirty, OutputTag<String> Late) throws Exception {
         //        TODO  1、读取日志数据并转化为 jsonObject
         SingleOutputStreamOperator<JSONObject> jsonObj = FlinkSourceUtil.getOdsLog(env,"Dwd_fact_user_login");
 
@@ -69,9 +74,6 @@ public class Dwd_fact_user_login extends BaseApp {
             }});
 
 //        TODO  3、对数据进行清洗，将脏数据输出到侧道
-//        定义脏数据侧道输出标签
-        OutputTag<String> Dirty = new OutputTag<String>("BM_Dirty") {};
-
         SingleOutputStreamOperator<JSONObject> result = process.process(new ProcessFunction<JSONObject, JSONObject>() {
             @Override
             public void processElement(JSONObject value, ProcessFunction<JSONObject, JSONObject>.Context ctx, Collector<JSONObject> out) throws Exception {
@@ -113,6 +115,7 @@ public class Dwd_fact_user_login extends BaseApp {
         SingleOutputStreamOperator<String> result_ss = result_province.map(jsonObject -> jsonObject.toJSONString());
 
 //        TODO  5、将数据输出到kafka上
+//        {"login_id":526692,"user_id":10039,"province_id":27,"login_ts":1749571200240,"user_name":"薛凯","channel":"PC","user_gender":"男","province_name":"陕西省"}
         result_ss.sinkTo(FlinkSinkUtil.getKafkaSink("BM_DWD_User_Login"));
 
 //        TODO  6、将脏数据输出到kafka上备用
@@ -121,4 +124,7 @@ public class Dwd_fact_user_login extends BaseApp {
 //        TODO  7、启动程序
         env.execute("用户登录事实表");
     }
+
+
+
 }

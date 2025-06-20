@@ -5,6 +5,7 @@ import com.alibaba.fastjson.JSONObject;
 import com.sun.xml.internal.bind.v2.TODO;
 import function.AsyncDimFunction;
 import function.DimAssFunction;
+import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.streaming.api.datastream.AsyncDataStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
@@ -47,15 +48,33 @@ public class Dwd_fact_user_register extends BaseApp {
 //        启动程序
         new Dwd_fact_user_register().start(
                 10012,
-                4,
+                1,
                 "Dwd_fact_user_register"
         );
     }
 
     @Override
-    public void handle(StreamExecutionEnvironment env, StreamTableEnvironment tEnv) throws Exception {
+    public void handle(StreamExecutionEnvironment env, StreamTableEnvironment tEnv,OutputTag<String> Dirty, OutputTag<String> Late) throws Exception {
 //        TODO  1、读取日志数据并转化为 jsonObject
-        SingleOutputStreamOperator<JSONObject> jsonObj = FlinkSourceUtil.getOdsLog(env,"Dwd_fact_user_register");
+        SingleOutputStreamOperator<JSONObject> jsonObj = env
+                .fromSource(
+                        FlinkSourceUtil.getMySqlSource("b1uemusic", "ods_user_register"),
+                        WatermarkStrategy.noWatermarks(),
+                        "vipDS")
+                .process(new ProcessFunction<String, JSONObject>() {
+                    @Override
+                    public void processElement(String value, ProcessFunction<String, JSONObject>.Context ctx, Collector<JSONObject> out) throws Exception {
+                        try {
+
+                            JSONObject data = JSONObject.parseObject(value).getJSONObject("after");
+                            out.collect(data);
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                            System.out.println("11111");
+
+                        }
+                    }
+                });
 
 //        TODO  2、过滤出用户注册日志数据
         SingleOutputStreamOperator<JSONObject> process = jsonObj.process(new ProcessFunction<JSONObject, JSONObject>() {
@@ -66,8 +85,6 @@ public class Dwd_fact_user_register extends BaseApp {
             }});
 
 //        TODO  3、对数据进行清洗，将脏数据输出到侧道
-//        定义脏数据侧道输出标签
-        OutputTag<String> Dirty = new OutputTag<String>("BM_Dirty") {};
         SingleOutputStreamOperator<JSONObject> result = process.process(new ProcessFunction<JSONObject, JSONObject>() {
             @Override
             public void processElement(JSONObject value, ProcessFunction<JSONObject, JSONObject>.Context ctx, Collector<JSONObject> out) throws Exception {
@@ -110,12 +127,14 @@ public class Dwd_fact_user_register extends BaseApp {
         SingleOutputStreamOperator<String> result_ss = result_province.map(jsonObject -> jsonObject.toJSONString());
 
 //        TODO  5、将数据输出到kafka上
-        result_ss.sinkTo(FlinkSinkUtil.getKafkaSink("BM_DWD_User_Register"));
+        result_ss.print();
 
-//        TODO  6、将脏数据输出到kafka上备用
-        result.getSideOutput(Dirty).sinkTo(FlinkSinkUtil.getKafkaSink("BM_Dirty"));
 
 //        TODO  7、启动程序
         env.execute("用户注册事实表");
     }
+
+
+
+
 }
