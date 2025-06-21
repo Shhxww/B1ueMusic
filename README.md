@@ -9,7 +9,7 @@
 ### 统计指标
 ![image](https://github.com/user-attachments/assets/4ed23482-62fa-4f29-914d-624a3aac3e1e)
 ## 🎶项目架构-流程
-![image](https://github.com/user-attachments/assets/aa860e72-12ec-48b4-a5fb-ab8dd46331a2)
+![image](https://github.com/user-attachments/assets/4f321d04-c591-436c-82df-d54125cb3433)
 ## 🎶数据可视化看板展示
 
 
