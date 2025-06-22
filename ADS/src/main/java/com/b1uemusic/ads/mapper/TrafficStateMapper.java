@@ -16,6 +16,6 @@ import java.util.Map;
 
 public interface TrafficStateMapper {
 
-    @Select("select songName,num from ddsds partition #{date} ")
+    @Select("select song_name,current_online_count from B1ueMusic.Dws_Traffic_SongPlay_OnlineNum partition p#{date} order by current_online_count desc limit 10 ")
     List<TrafficSongPlayRank> selectSongPlayRank(Integer date);
 }

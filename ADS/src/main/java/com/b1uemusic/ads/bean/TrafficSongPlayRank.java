@@ -15,4 +15,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class TrafficSongPlayRank {
+    private String song_name;
+    private String current_online_count;
 }

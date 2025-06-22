@@ -19,6 +19,7 @@ import org.apache.flink.table.api.TableResult;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.util.Collector;
 import org.apache.flink.util.OutputTag;
+import util.FlinkDirtyDateUtil;
 import util.FlinkSQLUtil;
 import util.FlinkSinkUtil;
 import util.FlinkSourceUtil;
@@ -93,14 +94,12 @@ public class Dwd_fact_user_login extends BaseApp {
                         out.collect(data);
                     } else {
 //                        类型数值不符合标准
-                        value.put("dirty_type", "1");
-                        ctx.output(Dirty, value.toJSONString());
+                        ctx.output(Dirty, FlinkDirtyDateUtil.Type1(value));
                     }
 
                 } catch (Exception e) {
 //                    类型转化错误
-                    value.put("dirty_type", "2");
-                    ctx.output(Dirty, value.toJSONString());
+                    ctx.output(Dirty, FlinkDirtyDateUtil.Type2(value));
                 }
             }
         });

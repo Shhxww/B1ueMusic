@@ -3,6 +3,11 @@ package dws_app;
 import base.BaseApp;
 import com.alibaba.fastjson.JSONObject;
 import com.sun.xml.internal.bind.v2.TODO;
+import function.DorisMapFunction;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.apache.flink.api.common.eventtime.SerializableTimestampAssigner;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.MapFunction;
@@ -17,7 +22,10 @@ import org.apache.flink.streaming.api.windowing.assigners.SlidingEventTimeWindow
 import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
+import org.apache.flink.util.Collector;
 import org.apache.flink.util.OutputTag;
+import util.DateFormatUtil;
+import util.FlinkSinkUtil;
 import util.FlinkSourceUtil;
 
 import java.time.Duration;
@@ -42,50 +50,74 @@ public class Dws_Governance_Dirty extends BaseApp {
     @Override
     public void handle(StreamExecutionEnvironment env, StreamTableEnvironment tEnv, OutputTag<String> Dirty, OutputTag<String> Late) throws Exception {
 
-//        TODO  1、获取脏数据流并转化为 jsonObject
-        SingleOutputStreamOperator<JSONObject> dirtyDS = env
+//        TODO  1、获取脏数据流并转化为 dirtyCountStatus
+        SingleOutputStreamOperator<dirtyCountStatus> dirtyDS = env
                 .fromSource(
                         FlinkSourceUtil.getkafkaSource("BM_Dirty", "Dws_Governance_Dirty"),
                         WatermarkStrategy.noWatermarks(),
-                        "dirtyDS").map(new MapFunction<String, JSONObject>() {
+                        "dirtyDS").map(new MapFunction<String, dirtyCountStatus>() {
                     @Override
-                    public JSONObject map(String value) throws Exception {
-                        return JSONObject.parseObject(value);
+                    public dirtyCountStatus map(String value) throws Exception {
+                        JSONObject jsonObject = JSONObject.parseObject(value);
+                        dirtyCountStatus dirtyCountStatus = Dws_Governance_Dirty.dirtyCountStatus
+                                .builder()
+                                .dirty_type(jsonObject.getString("dirty_type"))
+                                .count(1)
+                                .build();
+                        return dirtyCountStatus;
                     }
                 });
 
-        SingleOutputStreamOperator<JSONObject> logDS = FlinkSourceUtil.getOdsLog(env, "Dws_Governance_Dirty");
-//        TODO  2、设置水位线
-        SingleOutputStreamOperator<JSONObject> dirtyWM = dirtyDS
-                .assignTimestampsAndWatermarks(
-                        WatermarkStrategy
-                                .<JSONObject>forBoundedOutOfOrderness(Duration.ofSeconds(3))
-                                .withTimestampAssigner((j,l)->j.getLong("ts"))
-                );
+//        TODO  2、按类型进行分类
+        KeyedStream<dirtyCountStatus, String> keyedDS = dirtyDS.keyBy( j -> j.dirty_type);
 
-//        TODO  3、按来源进行分类
-        KeyedStream<JSONObject, String> keyedDS = dirtyWM.keyBy(j -> j.getString("Source"));
+//        TODO  3、开窗
+        WindowedStream<dirtyCountStatus, String, TimeWindow> windowDS = keyedDS.window(SlidingEventTimeWindows.of(Time.hours(1L), Time.minutes(1L)));
 
-//        TODO  4、开窗
-        WindowedStream<JSONObject, String, TimeWindow> windowDS = keyedDS.window(SlidingEventTimeWindows.of(Time.hours(1L), Time.minutes(1L)));
+//        TODO  4、统计
+        SingleOutputStreamOperator<dirtyCountStatus> reduce = windowDS.reduce(new ReduceFunction<dirtyCountStatus>() {
+            @Override
+            public dirtyCountStatus reduce(dirtyCountStatus value1, dirtyCountStatus value2) throws Exception {
+                return dirtyCountStatus
+                        .builder()
+                        .dirty_type(value1.dirty_type)
+                        .count(value1.count + value2.count)
+                        .build();
+            }
+        }, new ProcessWindowFunction<dirtyCountStatus, dirtyCountStatus, String, TimeWindow>() {
+            @Override
+            public void process(String s, ProcessWindowFunction<dirtyCountStatus, dirtyCountStatus, String, TimeWindow>.Context context, Iterable<dirtyCountStatus> elements, Collector<dirtyCountStatus> out) throws Exception {
+                dirtyCountStatus dcs = elements.iterator().next();
+                dcs.setPartitionDate(DateFormatUtil.tsToDate(context.window().getEnd()));
 
-//        TODO  5、统计
-//        SingleOutputStreamOperator<JSONObject> reduced = windowDS.reduce(
-//                new ReduceFunction<JSONObject>() {
-//                    @Override
-//                    public JSONObject reduce(JSONObject value1, JSONObject value2) throws Exception {
-//                        return null;
-//                    }
-//                },
-//                new ProcessWindowFunction<JSONObject, JSONObject, String, TimeWindow>() {
-//                }
-//
-//        );
+//                计算窗口时间范围
+                dcs.setWindowStart(DateFormatUtil.tsToDate(context.window().getStart()));
+                dcs.setWindowEnd(DateFormatUtil.tsToDate(context.window().getEnd()));
 
-//        TODO  、
-//        TODO  、
-//        TODO  、
-//        TODO  、执行程序
+                out.collect(dcs);
+            }
+        });
+
+//        TODO  5、输出至Doris
+        SingleOutputStreamOperator<String> result = reduce.map(new DorisMapFunction<>());
+        result.sinkTo(FlinkSinkUtil.getDorisSink(""));
+        result.print();
+
+//        TODO  6、执行程序
         env.execute("Dws_Governance_Dirty");
     }
+
+
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    @Builder
+    public static class dirtyCountStatus{
+        private String dirty_type;
+        private Integer count;
+        private String windowStart;
+        private String windowEnd;
+        private String partitionDate;
+    }
+
 }

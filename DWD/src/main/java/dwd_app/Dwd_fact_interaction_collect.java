@@ -14,6 +14,7 @@ import org.apache.flink.streaming.api.functions.ProcessFunction;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.util.Collector;
 import org.apache.flink.util.OutputTag;
+import util.FlinkDirtyDateUtil;
 import util.FlinkSinkUtil;
 import util.FlinkSourceUtil;
 
@@ -96,12 +97,10 @@ public class Dwd_fact_interaction_collect extends BaseApp {
                         data.put("channel", channel);
                         out.collect(data);
                     } else {
-                        value.put("dirty_type", "1");
-                        ctx.output(Dirty, value.toJSONString());
+                        ctx.output(Dirty, FlinkDirtyDateUtil.Type1(value));
                     }
                 }catch (Exception e){
-                    value.put("dirty_type", "2");
-                    ctx.output(Dirty, value.toJSONString());
+                    ctx.output(Dirty, FlinkDirtyDateUtil.Type2(value));
                 }
             }
         });

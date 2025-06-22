@@ -50,27 +50,7 @@ import java.util.Random;
  **/
 
 /**数据样本
-    {
-        "start_ts":1748275250760,
-         "singer_gender":"女",
-         "singer_nationality":"中",
-         "lead_song_id":10046,
-         "song_duration":"242",
-         "song_type":"3",
-         "singer_name":"邓紫棋",
-         "user_name":"田雨",
-         "channel":"APP",
-         "song_name":"喜欢你",
-         "lead_song_type":"1",
-         "user_gender":"女",
-         "lead_singer_id":"3001",
-         "lead_song_duration":"241",
-         "singer_id":"1003",
-         "song_id":10015,
-         "play_id":321100,
-         "user_id":10032,
-         "lead_song_name":"だから僕は音楽を辞めた"
-    }
+    {"start_ts":1748275250760,"singer_gender":"女","singer_nationality":"中","lead_song_id":10046,"song_duration":"242","song_type":"3","singer_name":"邓紫棋","user_name":"田雨","channel":"APP","song_name":"喜欢你","lead_song_type":"1","user_gender":"女","lead_singer_id":"3001","lead_song_duration":"241","singer_id":"1003","song_id":10015,"play_id":321100,"user_id":10032,"lead_song_name":"だから僕は音楽を辞めた","lead_song_name":""}
  */
 
 public class Dws_Traffic_SongPlay_OnlineNum extends BaseApp {
@@ -78,7 +58,7 @@ public class Dws_Traffic_SongPlay_OnlineNum extends BaseApp {
     public static void main(String[] args) throws Exception {
         new Dws_Traffic_SongPlay_OnlineNum().start(
                         10021,
-                        4,
+                        1,
                         "Dws_Traffic_SongPlay_OnlineNum");
     }
 
@@ -218,7 +198,7 @@ public class Dws_Traffic_SongPlay_OnlineNum extends BaseApp {
 
 //        TODO  6、输出至 Doris
         result.sinkTo(FlinkSinkUtil.getDorisSink("B1ueMusic.Dws_Traffic_SongPlay_OnlineNum"));
-
+        result.print();
 //        TODO  7、执行程序
         env.execute("歌曲在线人数");
     }

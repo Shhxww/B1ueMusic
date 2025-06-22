@@ -25,11 +25,17 @@ public class TrafficSongPlayRankController {
     @RequestMapping("/SongPlayRank")
     public String getSongPlayRank( @RequestParam(value = "date",defaultValue = "0") Integer date) {
         if (date == 0) {
-
+            date = 20250622;
         }
 
         List<TrafficSongPlayRank> songPlayRank = trafficSongPlayRankService.getSongPlayRank(date);
-        return "";
+        StringBuffer sss = new StringBuffer();
+
+        for (TrafficSongPlayRank trafficSongPlayRank : songPlayRank) {
+            sss.append("{\"song_name\":"+trafficSongPlayRank.getSong_name()+",\"Current_online_count\":"+trafficSongPlayRank.getCurrent_online_count()+"}\n");
+        }
+
+        return sss.toString();
     }
 
 }

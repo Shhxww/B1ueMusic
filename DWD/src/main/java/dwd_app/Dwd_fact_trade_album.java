@@ -19,6 +19,7 @@ import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.table.catalog.hive.HiveCatalog;
 import org.apache.flink.util.Collector;
 import org.apache.flink.util.OutputTag;
+import util.FlinkDirtyDateUtil;
 import util.FlinkSQLUtil;
 import util.FlinkSourceUtil;
 import util.HiveUtil;
@@ -76,12 +77,13 @@ public class Dwd_fact_trade_album extends BaseApp {
                     if (userId > 0L && orderId > 0L && orderNum > 0L && amount > 0L && statusTypeId != null ) {
                         if (statusTypeId.equals("101")) out.collect(data);
                     } else {
-                        data.put("dirty_type", "1");
-                        ctx.output(Dirty, data.toJSONString());
+//                        类型数值不符合标准
+                        ctx.output(Dirty, FlinkDirtyDateUtil.Type1(data));
                     }
+
                 } catch (Exception e) {
-                    data.put("dirty_type", "2");
-                    ctx.output(Dirty, data.toJSONString());
+//                    类型转化错误
+                    ctx.output(Dirty, FlinkDirtyDateUtil.Type2(data));
                 }
             }
         });
